@@ -2,7 +2,7 @@
 /*
 Plugin Name: BWS TFE Digest
 Description: Custom mail digest for Sabai Discuss.
-Version: 1.1.4
+Version: 1.2.0
 Author: Oleg Sokolov
 Author URI: https://thegazer.ru
 */
@@ -68,12 +68,18 @@ function bws_tfe_digest_settings_page() {
 	global $wpdb;
 
 	?><h1>Reset users reputation</h1>
+    <form>
+        <label for="start_time">Start time</label>
+        <input name="start_time" id="start_time" type="text">
+        <label for="end_time">End time</label>
+        <input name="end_time" id="end_time" type="text">
+    </form><br>
+
 	<button id="do_reset">Reset reputation</button>
     <div id="result"></div>
 
 	<script>
         window.jQuery(document).ready(function($) {
-            var siteUrl = '<?php echo site_url(); ?>';
             var result = $('#result');
 
             $('#do_reset').click(function () {
@@ -82,11 +88,15 @@ function bws_tfe_digest_settings_page() {
                 if(reset) {
                     $.ajax({
                         type:'post',
-                        url: siteUrl + '/wp-content/plugins/bws-tfe-digest/ajax-handler.php',
-                        data:{request: 'reset_reputation'},
+                        url: window.wp_data.ajax_url,
+                        data:{
+                            action: 'reset_repa',
+                            start_time: $('#start_time').val(),
+                            end_time: $('#end_time').val()
+                        },
                         dataType:'text',
                         success:function(data) {
-                            result.append('<p>Reputation of ' + data + 'users has just been reset to zero</p>');
+                            result.append('<p>Reputation of ' + data + ' users has just been reset for the time period</p>');
                         },
 
                         error: function(error) {
@@ -166,37 +176,7 @@ function bws_tfe_digest_send_letters() {
 	$timestamp_finish->setTime(23, 59, 59);
 	$timestamp_finish = $timestamp_finish->getTimestamp();
 
-	$old_votes = $wpdb->get_results('SELECT v.vote_entity_id, v.vote_value, v.vote_user_id, c.post_user_id, c.post_entity_bundle_type FROM '
-	                                .$wpdb->prefix.'sabai_voting_vote v INNER JOIN '
-	                                .$wpdb->prefix.'sabai_content_post c ON v.vote_entity_id = c.post_id WHERE vote_created BETWEEN '
-	                                .$timestamp_start.' AND '.$timestamp_finish);
-	$user_delta = array();
-
-	$repa_settings = bws_tfe_digest_get_reputation_settings();
-
-	// UP&DOWN Voting
-	foreach ($old_votes as $vote) {
-		if(strcmp($vote->post_entity_bundle_type, "questions") == 0) {
-			if($vote->vote_value < 0) {
-				$user_delta[$vote->post_user_id] = isset( $user_delta[$vote->post_user_id] ) ? $user_delta[$vote->post_user_id] += $repa_settings['question_voted_down'] : $repa_settings['question_voted_down'];
-			} else {
-				$user_delta[$vote->post_user_id] = isset( $user_delta[$vote->post_user_id] ) ? $user_delta[$vote->post_user_id] += $repa_settings['question_voted'] : $repa_settings['question_voted'];
-			}
-		} else {
-			if($vote->vote_value < 0) {
-				$user_delta[$vote->post_user_id] = isset( $user_delta[$vote->post_user_id] ) ? $user_delta[$vote->post_user_id] += $repa_settings['answer_voted_down'] : $repa_settings['answer_voted_down'];
-				$user_delta[$vote->post_user_id] = isset( $user_delta[$vote->post_user_id] ) ? $user_delta[$vote->post_user_id] += $repa_settings['answer_vote_down'] : $repa_settings['answer_vote_down'];
-			} else {
-				$user_delta[$vote->post_user_id] = isset( $user_delta[$vote->post_user_id] ) ? $user_delta[$vote->post_user_id] += $repa_settings['answer_voted'] : $repa_settings['answer_voted'];
-			}
-		}
-	}
-
-	// Accepted Answers
-	$accepted_posts = $wpdb->get_results('SELECT a.entity_id, c.post_user_id FROM '.$wpdb->prefix.'sabai_entity_field_questions_answer_accepted a INNER JOIN '.$wpdb->prefix.'sabai_content_post c ON a.entity_id = c.post_id WHERE accepted_at BETWEEN '.$timestamp_start.' AND '.$timestamp_finish);
-	foreach ($accepted_posts as $post) {
-		$user_delta[$vote->post_user_id] = isset( $user_delta[$vote->post_user_id] ) ? $user_delta[$vote->post_user_id] += $repa_settings['answer_accepted'] : $repa_settings['answer_accepted'];
-	}
+	$user_delta = bws_tfe_digest_get_user_delta_reputation_with_timestamp( $timestamp_start, $timestamp_finish );
 
 	// UNANSWERED QUESTIONS
 	// GET mentions from unanswered questions
@@ -456,63 +436,70 @@ function bws_tfe_digest_check_mention_users_comment_answer ( $comment ) {
 	remove_filter( 'wp_mail_content_type', 'wpdocs_set_html_mail_content_type' );
 }
 
-function bws_tfe_digest_reset_reputation_with_timestamp( $timestamp_start, $timestamp_finish ) {
-	$handle = get_option( 'reset_reputation' );
-	if($handle == false) {
-		return;
-	}
-	update_option( 'reset_reputation', false);
+function bws_tfe_digest_get_user_delta_reputation_with_timestamp( $timestamp_start, $timestamp_finish ) {
+    global $wpdb;
 
+    $old_votes = $wpdb->get_results('SELECT v.vote_entity_id, v.vote_value, v.vote_user_id, c.post_user_id, c.post_entity_bundle_type FROM '
+        .$wpdb->prefix.'sabai_voting_vote v INNER JOIN '
+        .$wpdb->prefix.'sabai_content_post c ON v.vote_entity_id = c.post_id WHERE vote_created BETWEEN '
+        .$timestamp_start.' AND '.$timestamp_finish);
+    $user_delta = array();
+
+    $repa_settings = bws_tfe_digest_get_reputation_settings();
+
+    // UP&DOWN Voting
+    foreach ($old_votes as $vote) {
+        if ( get_user_by( 'ID', $vote->post_user_id ) == false ) {
+            continue;
+        }
+
+        if(strcmp($vote->post_entity_bundle_type, "questions") == 0) {
+            if($vote->vote_value < 0) {
+                $user_delta[$vote->post_user_id] = isset( $user_delta[$vote->post_user_id] ) ? ($user_delta[$vote->post_user_id] + $repa_settings['question_voted_down']) : $repa_settings['question_voted_down'];
+            } else {
+                $user_delta[$vote->post_user_id] = isset( $user_delta[$vote->post_user_id] ) ? ($user_delta[$vote->post_user_id] + $repa_settings['question_voted']) : $repa_settings['question_voted'];
+            }
+        } else {
+            if($vote->vote_value < 0) {
+                $user_delta[$vote->post_user_id] = isset( $user_delta[$vote->post_user_id] ) ? ($user_delta[$vote->post_user_id] + $repa_settings['answer_voted_down']) : $repa_settings['answer_voted_down'];
+                $user_delta[$vote->post_user_id] = isset( $user_delta[$vote->post_user_id] ) ? ($user_delta[$vote->post_user_id] + $repa_settings['answer_vote_down']) : $repa_settings['answer_vote_down'];
+            } else {
+                $user_delta[$vote->post_user_id] = isset( $user_delta[$vote->post_user_id] ) ? ($user_delta[$vote->post_user_id] + $repa_settings['answer_voted']) : $repa_settings['answer_voted'];
+            }
+        }
+    }
+
+    // Accepted Answers
+    $accepted_posts = $wpdb->get_results('SELECT a.entity_id, c.post_user_id FROM '.$wpdb->prefix.'sabai_entity_field_questions_answer_accepted a INNER JOIN '.$wpdb->prefix.'sabai_content_post c ON a.entity_id = c.post_id WHERE accepted_at BETWEEN '.$timestamp_start.' AND '.$timestamp_finish);
+    foreach ($accepted_posts as $post) {
+        if ( get_user_by( 'ID', $post->post_user_id ) == false ) {
+            continue;
+        }
+
+        $user_delta[$post->post_user_id] = isset( $user_delta[$post->post_user_id] ) ? ($user_delta[$post->post_user_id] + $repa_settings['answer_accepted']) : $repa_settings['answer_accepted'];
+    }
+
+    return $user_delta;
+}
+
+function bws_tfe_digest_reset_reputation_with_timestamp( $timestamp_start, $timestamp_finish ) {
 	global $wpdb;
 
-	//$timestamp_start = 1451606400;
-	//$timestamp_finish = 1483228799;
-	$old_votes = $wpdb->get_results('SELECT v.vote_entity_id, v.vote_value, v.vote_user_id, c.post_user_id, c.post_entity_bundle_type FROM '
-	                                .$wpdb->prefix.'sabai_voting_vote v INNER JOIN '
-	                                .$wpdb->prefix.'sabai_content_post c ON v.vote_entity_id = c.post_id WHERE vote_created BETWEEN '
-	                                .$timestamp_start.' AND '.$timestamp_finish);
-
-	$user_delta = array();
-
-	$repa_settings = bws_tfe_digest_get_reputation_settings();
-
-	// UP&DOWN Voting
-	foreach ($old_votes as $vote) {
-		if(strcmp($vote->post_entity_bundle_type, "questions") == 0) {
-			if($vote->vote_value < 0) {
-				$user_delta[$vote->post_user_id] += $repa_settings['question_voted_down'];
-			} else {
-				$user_delta[$vote->post_user_id] += $repa_settings['question_voted'];
-			}
-		} else {
-			if($vote->vote_value < 0) {
-				$user_delta[$vote->post_user_id] += $repa_settings['answer_voted_down'];
-				$user_delta[$vote->vote_user_id] += $repa_settings['answer_vote_down'];
-			} else {
-				$user_delta[$vote->post_user_id] += $repa_settings['answer_voted'];
-			}
-		}
-	}
-
-	// Accepted Answers
-	$accepted_posts = $wpdb->get_results('SELECT a.entity_id, c.post_user_id FROM '.$wpdb->prefix.'sabai_entity_field_questions_answer_accepted a INNER JOIN '.$wpdb->prefix.'sabai_content_post c ON a.entity_id = c.post_id WHERE accepted_at BETWEEN '.$timestamp_start.' AND '.$timestamp_finish);
-	foreach ($accepted_posts as $post) {
-		$user_delta[$post->post_user_id] -= ANSWER_ACCEPTED;
-	}
-
+    $user_delta = bws_tfe_digest_get_user_delta_reputation_with_timestamp( $timestamp_start, $timestamp_finish );
 	ksort($user_delta);
+    $fresh_repa = array();
 
 	foreach ($user_delta as $user => $drep) {
 		$row = $wpdb->get_row('SELECT * FROM '.$wpdb->usermeta.' WHERE user_id = '.$user.' AND meta_key = "wp_sabai_sabai_questions_reputation"', 'ARRAY_A');
-		$user_delta[$user] += $row['meta_value'];
+		$fresh_repa[$user] = $row['meta_value'] - $user_delta[$user];
 		$changed_lines = $wpdb->update(
 			$wpdb->prefix.'usermeta',
-			array( 'meta_value' => $user_delta[$user] ),
+			array( 'meta_value' => $fresh_repa[$user] ),
 			array(
 				'user_id'   =>  $user,
-				'meta_key'  =>  $row['meta_key']
+				'meta_key'  =>  'wp_sabai_sabai_questions_reputation'
 			),
-			'%d',
+			'%s',
 			array( '%d', '%s' )
 		);
 	}
@@ -629,9 +616,9 @@ function bws_tfe_digest_get_lenght_url($line) {
 	return $length;
 }
 
-//add_action( 'wp_head', 'bws_tfe_digest_send_letters' );
-/*function debug() {
-    echo time();
+/*add_action( 'wp_head', 'debug' );
+function debug() {
+    bws_tfe_digest_reset_reputation_with_timestamp( 1483228800,1514764800 );
 }*/
 
 // Возвращает список вопросов, отвеченных за последние x секунд
@@ -689,3 +676,21 @@ function bws_tfe_digest_get_mentions_from_questions( &$questions ) {
 
 	return $mentions;
 }
+
+function bws_tfe_digest_js_variables() {
+    $variables = array (
+        'ajax_url'      =>  admin_url('admin-ajax.php'),
+    );
+
+    echo '<script type="text/javascript">window.wp_data = ', json_encode($variables), ';</script>';
+}
+add_action( 'admin_init', 'bws_tfe_digest_js_variables' );
+
+// AJAX-обработка для запросов сброса репутации
+function bws_tfe_digest_reset_repa_ajax() {
+    return bws_tfe_digest_reset_reputation_with_timestamp( $_POST['time_start'], $_POST['time_end'] );
+
+    wp_die();
+}
+add_action('wp_ajax_reset_repa', 'bws_tfe_digest_reset_repa_ajax');
+add_action('wp_ajax_nopriv_reset_repa', 'bws_tfe_digest_reset_repa_ajax');
