@@ -124,17 +124,21 @@ function bws_tfe_digest_send_letters() {
 	$body = "";
 	$body .= "Hey there,<br><br>";
 	$body .= "<span style='font-weight:bold;'>Here is the list of questions posted today:</span><br>";
-	$body .= "<ol>";
-	for ($i = count($results) - 1; $i >= 0; $i--) {
-		$body .= "<li><a href='".site_url()."/questions/question/".$results[$i]->post_slug."'>".$results[$i]->post_title."</a></li>";
+	$body .= "<table style='padding-left: 20px;'>";
+
+	$today_questions_count = count($results);
+
+	for ($i = $today_questions_count - 1; $i >= 0; $i--) {
+		$body .= "<tr><td>".($today_questions_count - $i).". </td><td><a href='".site_url()."/questions/question/".$results[$i]->post_slug."'>".$results[$i]->post_title."</a></td></tr>";
 	}
-	$body .= "</ol>";
+	$body .= "</table>";
 
 	// RATING BY YEAR
 	$user_rating = $wpdb->get_results('SELECT r.meta_value, r.user_id, u.user_login FROM '
 	                                  .$wpdb->prefix.'usermeta r INNER JOIN '
 	                                  .$wpdb->prefix.'users u ON r.user_id = u.ID WHERE meta_key = "wp_sabai_sabai_questions_reputation" AND meta_value > 0', ARRAY_A);
 
+	// Сортировка по количеству поинтов (от большего к меньшему)
 	$ls = count($user_rating);
 	$t = array();
 	for($i = 0; $i < $ls; $i++) {
@@ -200,12 +204,12 @@ function bws_tfe_digest_send_letters() {
 	$body .= "<hr />";
 
 	$body .= "<span style='font-weight:bold;'>Here is the list of unanswered questions:</span><br>";
-	$body .= "<table><ol>";
+	$body .= "<table style='padding-left: 20px;'>";
 
 	$unanswered_questions_count = count($unanswered);
 
 	for ($i = $unanswered_questions_count - 1; $i >= 0; $i--) {
-		$body .= "<tr><li><td style='min-width: 80px;'>".date('M-d-Y', $unanswered[$i]->post_published)."</td><td><a href='".site_url()."/questions/question/".$unanswered[$i]->post_slug."'>".$unanswered[$i]->post_title."</a>";
+		$body .= "<tr><td style='min-width: 80px;'>".($unanswered_questions_count - $i).". ".date('M-d-Y', $unanswered[$i]->post_published)."</td><td><a href='".site_url()."/questions/question/".$unanswered[$i]->post_slug."'>".$unanswered[$i]->post_title."</a>";
 		// Mentions
 		for ($j = 0; $j < count($unanswered[$i]->mentions); $j++) {
 			if ($j == 0) {
@@ -220,9 +224,9 @@ function bws_tfe_digest_send_letters() {
 				$body .= ", ";
 			}
 		}
-		$body .= "</td></li></tr>";
+		$body .= "</td></tr>";
 	}
-	$body .= "</ol></table>";
+	$body .= "</table>";
 
 	// ВОПРОСЫ С ОТВЕТАМИ ЗА ПОСЛЕДНИЕ 3 ДНЯ
 	// Получение упоминаний из вопросов, на которые есть ответы за последние x секунд
@@ -238,9 +242,12 @@ function bws_tfe_digest_send_letters() {
 	$body .= "<hr />";
 
 	$body .= "<span style='font-weight:bold;'>Here is the list of answered questions over last 3 days:</span><br>";
-	$body .= "<ol><table>";
-	for ( $i = count( $xseconds_questions ) - 1; $i >= 0; $i-- ) {
-		$body .= "<tr><li><td style='min-width: 80px;'>".date('M-d-Y', $xseconds_questions[$i]->post_published)."</td><td><a href='".site_url()."/questions/question/".$xseconds_questions[$i]->post_slug."'>".$xseconds_questions[$i]->post_title."</a>";
+	$body .= "<table style='padding-left: 20px;'>";
+
+	$xseconds_questions_count = count( $xseconds_questions );
+
+	for ( $i = $xseconds_questions_count - 1; $i >= 0; $i-- ) {
+		$body .= "<tr><td style='min-width: 80px;'>".($xseconds_questions_count - $i).". ".date('M-d-Y', $xseconds_questions[$i]->post_published)."</td><td><a href='".site_url()."/questions/question/".$xseconds_questions[$i]->post_slug."'>".$xseconds_questions[$i]->post_title."</a>";
 		// Mentions
 		for ($j = 0; $j < count($xseconds_questions[$i]->mentions); $j++) {
 			if ($j == 0) {
@@ -255,14 +262,14 @@ function bws_tfe_digest_send_letters() {
 				$body .= ", ";
 			}
 		}
-		$body .= "</td></li></tr>";
+		$body .= "</td></tr>";
 	}
-	$body .= "</table></ol>";
+	$body .= "</table>";
 
 	// USER RATING
 	$body .= "<hr />";
 
-	$body .= "<table style='margin-right: auto; margin-left: auto;'><span style='font-weight:bold'>Here is the user rating:</span><br>";
+	$body .= "<table style='margin-right: auto; margin-left: auto;'><span style='font-weight:bold; text-align: center;'>Here is the user rating:</span><br>";
 	$body .= "<tr><td>Name</td><td>Rating YTD</td>Rating MTD<td></td></tr>";
 	foreach ($user_rating as $user) {
 		$month_rating = array_key_exists($user['user_id'], $user_delta) ? $user_delta[$user['user_id']] : 0;
@@ -591,8 +598,8 @@ function bws_tfe_digest_get_lenght_url($line) {
 	return $length;
 }
 
-/*add_action( 'wp_head', 'debug' );
-function debug() {
+add_action( 'wp_head', 'bws_tfe_digest_send_letters' );
+/*function debug() {
     echo time();
 }*/
 
