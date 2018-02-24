@@ -393,7 +393,7 @@ function bws_tfe_digest_check_mention_users_comment_question ( $comment ) {
 		if(username_exists($user)) {
 			$user_data = get_user_by('login', $user);
 			$to = $user_data->user_email;
-			$headers[] = 'From: TFX Questions <info@taxesforexpats.com>' . "\r\n";
+			$headers[] = 'From: TOQ Questions <info@taxesforexpats.com>' . "\r\n";
 
 			$body = "";
 			$body .= "Hi, $user_data->display_name!<br><br>";
