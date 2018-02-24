@@ -123,8 +123,8 @@ function bws_tfe_digest_send_letters() {
 	// LIST for TODAY questions
 	$body = "";
 	$body .= "Hey there,<br><br>";
-	$body .= "<span style='font-weight:bold;'>Here is the list of questions posted today:</span><br>";
-	$body .= "<table style='padding-left: 20px;'>";
+	$body .= "<span style='font-weight:bold;'>Here is the list of questions posted today:</span><br><br>";
+	$body .= "<table>";
 
 	$today_questions_count = count($results);
 
@@ -201,15 +201,18 @@ function bws_tfe_digest_send_letters() {
 	// UNANSWERED QUESTIONS
 	// GET mentions from unanswered questions
 	$unanswered_mentions = bws_tfe_digest_get_mentions_from_questions( $unanswered );
+
+	print_r($unanswered_mentions);
+
 	$body .= "<hr />";
 
-	$body .= "<span style='font-weight:bold;'>Here is the list of unanswered questions:</span><br>";
-	$body .= "<table style='padding-left: 20px;'>";
+	$body .= "<span style='font-weight:bold;'>Here is the list of unanswered questions:</span><br><br>";
+	$body .= "<table>";
 
-	$unanswered_questions_count = count($unanswered);
+	$unanswered_questions_count = count( $unanswered );
 
 	for ($i = $unanswered_questions_count - 1; $i >= 0; $i--) {
-		$body .= "<tr><td style='min-width: 80px;'>".($unanswered_questions_count - $i).". ".date('M-d-Y', $unanswered[$i]->post_published)."</td><td><a href='".site_url()."/questions/question/".$unanswered[$i]->post_slug."'>".$unanswered[$i]->post_title."</a>";
+		$body .= "<tr><td style='min-width: 100px;'>".($unanswered_questions_count - $i).". ".date('M-d-Y', $unanswered[$i]->post_published)."</td><td><a href='".site_url()."/questions/question/".$unanswered[$i]->post_slug."'>".$unanswered[$i]->post_title."</a>";
 		// Mentions
 		for ($j = 0; $j < count($unanswered[$i]->mentions); $j++) {
 			if ($j == 0) {
@@ -220,7 +223,7 @@ function bws_tfe_digest_send_letters() {
 
 			$body .= "<b>".$mention."</b>";
 
-			if (!($j == count($unanswered[$i]->mentions) - 1)) {
+			if ( !($j == count( $unanswered[$i]->mentions) - 1 ) ) {
 				$body .= ", ";
 			}
 		}
@@ -237,17 +240,15 @@ function bws_tfe_digest_send_letters() {
 		$xseconds_questions[] = $wpdb->get_row( 'SELECT * FROM '.$wpdb->prefix.'sabai_content_post WHERE post_id = ' . $id );
 	}
 
-	$xseconds_mentions = bws_tfe_digest_get_mentions_from_questions( $xseconds_questions );
-
 	$body .= "<hr />";
 
-	$body .= "<span style='font-weight:bold;'>Here is the list of answered questions over last 3 days:</span><br>";
-	$body .= "<table style='padding-left: 20px;'>";
+	$body .= "<span style='font-weight:bold;'>Here is the list of answered questions over last 3 days:</span><br><br>";
+	$body .= "<table>";
 
 	$xseconds_questions_count = count( $xseconds_questions );
 
 	for ( $i = $xseconds_questions_count - 1; $i >= 0; $i-- ) {
-		$body .= "<tr><td style='min-width: 80px;'>".($xseconds_questions_count - $i).". ".date('M-d-Y', $xseconds_questions[$i]->post_published)."</td><td><a href='".site_url()."/questions/question/".$xseconds_questions[$i]->post_slug."'>".$xseconds_questions[$i]->post_title."</a>";
+		$body .= "<tr><td style='min-width: 100px;'>".($xseconds_questions_count - $i).". ".date('M-d-Y', $xseconds_questions[$i]->post_published)."</td><td><a href='".site_url()."/questions/question/".$xseconds_questions[$i]->post_slug."'>".$xseconds_questions[$i]->post_title."</a>";
 		// Mentions
 		for ($j = 0; $j < count($xseconds_questions[$i]->mentions); $j++) {
 			if ($j == 0) {
@@ -269,19 +270,48 @@ function bws_tfe_digest_send_letters() {
 	// USER RATING
 	$body .= "<hr />";
 
-	$body .= "<table style='margin-right: auto; margin-left: auto;'><span style='font-weight:bold; text-align: center;'>Here is the user rating:</span><br>";
-	$body .= "<tr><td>Name</td><td>Rating YTD</td>Rating MTD<td></td></tr>";
-	foreach ($user_rating as $user) {
-		$month_rating = array_key_exists($user['user_id'], $user_delta) ? $user_delta[$user['user_id']] : 0;
-		$tws = "";
-		$twe = "";
-		if($month_rating > 0) {
-			$tws = "<b>";
-			$twe = "</b>";
-		}
-		$body .= "<tr><td>".$tws.$user['user_login'].$twe."</td><td style='text-align: right'>".$tws.$user['meta_value'].$twe."</td><td style='text-align: right'>".$tws.$month_rating.$twe."</td></tr>";
-	}
+    $user_rating_count = count( $user_rating );
+    $users_lines_count = $user_rating_count / 2;
+    $users_rating_column1 = array();
+    $users_rating_column2 = array();
+
+    foreach ( $user_rating as $key => $user ) {
+        $month_rating = array_key_exists( $user['user_id'], $user_delta ) ? $user_delta[$user['user_id']] : 0;
+        $tws = "";
+        $twe = "";
+        if ( $month_rating > 0 ) {
+            $tws = "<b>";
+            $twe = "</b>";
+        }
+
+        if ( $key < $users_lines_count ) {
+            $users_rating_column1[] = "<tr><td>".$tws.$user['user_login'].$twe."</td><td style='text-align: right'>".$tws.$user['meta_value'].$twe."</td><td style='text-align: right'>".$tws.$month_rating.$twe."</td></tr>";
+        } else {
+            $users_rating_column2[] = "<tr><td>".$tws.$user['user_login'].$twe."</td><td style='text-align: right'>".$tws.$user['meta_value'].$twe."</td><td style='text-align: right'>".$tws.$month_rating.$twe."</td></tr>";
+        }
+    }
+
+    // Первый столбец
+	//$body .= "<table style='margin-right: auto; margin-left: auto;'><span style='font-weight:bold; text-align: center;'>Here is the user rating:</span><br>";
+	$body .= "<span style='font-weight:bold; margin-left: auto; margin-right: auto;'>Here is the user rating:</span><br><br>";
+    $body .= "<table style='display: inline-block; margin-right: 50px;'>";
+	$body .= "<tr><td>Name</td><td>Rating YTD</td><td>Rating MTD</td></tr>";
+
+    foreach ( $users_rating_column1 as $line ) {
+        $body .= $line;
+    }
+
 	$body .= "</table>";
+
+    // Второй столбец
+    $body .= "<table style='display: inline-block; padding-right: 50px; vertical-align: top;'>";
+    $body .= "<tr><td>Name</td><td>Rating YTD</td><td>Rating MTD</td></tr>";
+
+    foreach ( $users_rating_column2 as $line ) {
+        $body .= $line;
+    }
+
+    $body .= "</table>";
 
 	$args = array('orderby' => 'display_name');
 	$wp_user_query = new WP_User_Query($args);
@@ -296,9 +326,9 @@ function bws_tfe_digest_send_letters() {
 	$to = 'turgenoid@gmail.com';
 
 	// SEND the digest
-	//if($count_r > 0) {
+	if($count_r > 0) {
 		wp_mail( $to, 'TOQ Questions Posted Today - '.count($results).' new for '.date('M-d', $timestamp), $body/*, $headers*/ );
-	//}
+	}
 
 	// USERS REMINDERS
 	foreach ( $unanswered_mentions as $uid => $um ) {
@@ -307,7 +337,8 @@ function bws_tfe_digest_send_letters() {
 		}
 
 		$user_data = get_user_by( 'id', $uid );
-		$to = $user_data->user_email;
+		//$to = $user_data->user_email;
+        $to = 'turgenoid@gmail.com';
 		$headers = array();
 		$headers[] = 'From: TOQ Questions <info@taxesforexpats.com>' . "\r\n";
 
@@ -322,7 +353,7 @@ function bws_tfe_digest_send_letters() {
 		}
 		$body .= "</ol>";
 
-		//wp_mail( $to, 'TOQ: You have '.count( $unanswered_mentions[$uid] ).' questions unanswered where you are mentioned', $body, $headers );
+		wp_mail( $to, 'TOQ: You have '.count( $unanswered_mentions[$uid] ).' questions unanswered where you are mentioned', $body, $headers );
 	}
 
 	remove_filter( 'wp_mail_content_type', 'wpdocs_set_html_mail_content_type' );
