@@ -105,8 +105,8 @@ add_action( 'bws_tfe_digest_daily_post', 'bws_tfe_digest_send_letters' );
 function bws_tfe_digest_send_letters() {
 	add_filter( 'wp_mail_content_type', 'wpdocs_set_html_mail_content_type' );
 	global $wpdb;
-	$timestamp = 1519257600;//get_option( 'bws_tfe_digest_time_mail' );
-	//update_option( 'bws_tfe_digest_time_mail', time() );
+	$timestamp = get_option( 'bws_tfe_digest_time_mail' );
+	update_option( 'bws_tfe_digest_time_mail', time() );
 	$headers[] = 'From: TOQ Questions <info@taxesforexpats.com>'."\r\n";
 	$count_r = $wpdb->get_var( 'SELECT COUNT(*) FROM '.$wpdb->prefix.'sabai_content_post WHERE post_entity_bundle_name = "questions" AND post_published>='.$timestamp.' AND post_status = "published"');
 	$results = $wpdb->get_results( 'SELECT * FROM '.$wpdb->prefix.'sabai_content_post WHERE post_entity_bundle_name = "questions" AND post_published>='.$timestamp.' AND post_status = "published"');
@@ -321,13 +321,13 @@ function bws_tfe_digest_send_letters() {
 	}
 
 	$addresses =  implode(',', $email_addresses);
-	//$headers[] = 'Bcc: '.$addresses.'\n';
-	//$to = 'jepstein@taxesforexpats.com';
-	$to = 'turgenoid@gmail.com';
+	$headers[] = 'Bcc: '.$addresses.'\n';
+	$to = 'jepstein@taxesforexpats.com';
+	//$to = 'turgenoid@gmail.com';
 
 	// SEND the digest
 	if($count_r > 0) {
-		wp_mail( $to, 'TOQ Questions Posted Today - '.count($results).' new for '.date('M-d', $timestamp), $body/*, $headers*/ );
+		wp_mail( $to, 'TOQ Questions Posted Today - '.count($results).' new for '.date('M-d', $timestamp), $body, $headers );
 	}
 
 	// USERS REMINDERS
@@ -337,8 +337,8 @@ function bws_tfe_digest_send_letters() {
 		}
 
 		$user_data = get_user_by( 'id', $uid );
-		//$to = $user_data->user_email;
-        $to = 'turgenoid@gmail.com';
+		$to = $user_data->user_email;
+        //$to = 'turgenoid@gmail.com';
 		$headers = array();
 		$headers[] = 'From: TOQ Questions <info@taxesforexpats.com>' . "\r\n";
 
@@ -370,7 +370,7 @@ add_action( 'sabai_user_mention_check_comment_question', 'bws_tfe_digest_check_m
 add_action( 'sabai_user_mention_check_comment_answer', 'bws_tfe_digest_check_mention_users_comment_answer', 10, 1 );
 
 function bws_tfe_digest_check_mention_users( $bundle, $entity, $values ) {
-	$message = $values[content_body][0][value];
+	$message = $values['content_body'][0]['value'];
 	$regex = '/@\W*[a-zA-Z]+(\s{1}([a-zA-Z]{1}\s{1}|[a-zA-Z]$))?/';
 	preg_match_all($regex, $message, $names, PREG_SET_ORDER, 0);
 
@@ -629,7 +629,7 @@ function bws_tfe_digest_get_lenght_url($line) {
 	return $length;
 }
 
-add_action( 'wp_head', 'bws_tfe_digest_send_letters' );
+//add_action( 'wp_head', 'bws_tfe_digest_send_letters' );
 /*function debug() {
     echo time();
 }*/
